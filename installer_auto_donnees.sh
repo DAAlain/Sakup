@@ -33,6 +33,9 @@ apt update && apt upgrade -y
 sudo apt install -y apache2 mariadb-server php php-mysql php-xml php-mbstring php-gd php-curl unzip wget phpmyadmin openssl pdo_mysql
 sudo apt-get install -y php-cli php-zip php-intl php-bcmath php-soap php-imagick php-json php-tokenizer
 
+sudo systemctl restart apache2
+sudo systemctl restart mariadb
+
 # --- TÉLÉCHARGEMENT ET INSTALLATION DE PRESTASHOP 9.0 ---
 echo "Téléchargement et installation de PrestaShop 9.0..."
 
