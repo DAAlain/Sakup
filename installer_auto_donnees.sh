@@ -7,9 +7,9 @@ DB_USER="alain"    # Nom de l'utilisateur existant (avec tous les droits sur la 
 DB_PASS="@NBG40709@" # Mot de passe de l'utilisateur existant
 
 # Configuration pour la restauration des données depuis le second VPS
-REMOTE_USER="salim"
+REMOTE_USER="alain"
 REMOTE_HOST="87.106.123.58"
-REMOTE_DIR="/home/salim/backupSakup"
+REMOTE_DIR="/home/alain/backupSakup"
 BACKUP_DIR="backSakup"
 
 # Détection automatique de l'adresse IP du VPS
@@ -23,66 +23,183 @@ SHOP_NAME="Sakup"
 SHOP_COUNTRY="fr"
 SHOP_TIMEZONE="Europe/Paris"
 
+# --- Variables pour les utilisateurs ---
+MAIN_USER="alain"
+SFTP_USER="alainftp"
+MAIN_USER_PASSWORD="@NBG40709@"
+SFTP_USER_PASSWORD="@NBG40709@"
+SFTP_HOME="/home/alainftp"
+SFTP_CHROOT="/var/www/html"
+
+# ------------------------------------
 # --- VÉRIFICATION DES DÉPENDANCES ---
+# ------------------------------------
+
 echo "Vérification des dépendances nécessaires..."
 
 # Mise à jour du système
 apt update && apt upgrade -y
 
-# Installation des dépendances de base
+# --- Installation des dépendances ---
 sudo apt install -y apache2 mariadb-server php php-mysql php-xml php-mbstring php-gd php-curl unzip wget phpmyadmin openssl
-sudo apt-get install -y php-cli php-zip php-intl php-bcmath php-soap php-imagick php-json php-tokenizer
+sudo apt-get install -y php-cli php-zip php-intl php-bcmath php-soap php-imagick php-json php-tokenizer php-memcached
 
-a2enmod ssl
-a2ensite default-ssl
-
+# --- Activation des modules Apache ---
+echo "Activation des modules Apache et mariadb nécessaires..."
+sudo a2enmod rewrite ssl headers deflate expires
+sudo a2ensite default-ssl
 sudo systemctl restart apache2
 sudo systemctl restart mariadb
+echo "Activation des modules Apache et mariadb nécessaires terminée !"
 
+# ---------------------------------
+# --- CONFIGURATION DU Swapfile ---
+# ---------------------------------
+
+echo "Configuration du Swapfile..."
+
+# --- Configuration default-ssl.conf ---
+echo "<Directory /var/www/html>AllowOverride All</Directory>" >> /etc/apache2/sites-available/default-ssl.conf
+sudo systemctl restart apache2
+
+# --- Configuration du Swapfile ---
+dd if=/dev/zero of=/swapfile1 bs=1024 count=1048576
+chmod 600 /swapfile1
+mkswap /swapfile1
+swapon /swapfile1
+echo "/swapfile1 none swap sw 0 0" >> /etc/fstab
+echo "Configuration du Swapfile terminée !"
+
+# ----------------------------
+# --- CONFIGURATION DU PHP ---
+# ----------------------------
+
+echo "Configuration du PHP..."
+sudo sed -i 's/max_input_vars = 1000/max_input_vars = 5000/' /etc/php/8.4/cli/php.ini
+sudo sed -i 's/memory_limit = 128M/memory_limit = 256M/' /etc/php/8.4/apache2/php.ini
+sudo sed -i 's/upload_max_filesize = 2M/upload_max_filesize = 128M/' /etc/php/8.4/apache2/php.ini
+sudo sed -i 's/post_max_size = 8M/post_max_size = 128M/' /etc/php/8.4/apache2/php.ini
+sudo systemctl restart apache2
+echo "Configuration du PHP terminée !"
+
+# ===============================================
+# --- CRÉATION D'UTILISATEUR ET UTILISATEUR SFTP ---
+# ===============================================
+
+echo "Création des utilisateurs système et SFTP..."
+
+# --- Création de l'utilisateur principal ---
+echo "Création de l'utilisateur principal '$MAIN_USER'..."
+if ! id "$MAIN_USER" &>/dev/null; then
+    useradd -m -s /bin/bash "$MAIN_USER"
+    echo "$MAIN_USER:$MAIN_USER_PASSWORD" | chpasswd
+    usermod -aG sudo "$MAIN_USER"
+    echo "Utilisateur principal '$MAIN_USER' créé avec succès"
+else
+    echo "L'utilisateur '$MAIN_USER' existe déjà"
+fi
+
+# --- Création de l'utilisateur SFTP ---
+echo "Création de l'utilisateur SFTP '$SFTP_USER'..."
+if ! id "$SFTP_USER" &>/dev/null; then
+    useradd -m -s /bin/false "$SFTP_USER"
+    echo "$SFTP_USER:$SFTP_USER_PASSWORD" | chpasswd
+    echo "Utilisateur SFTP '$SFTP_USER' créé avec succès"
+else
+    echo "L'utilisateur SFTP '$SFTP_USER' existe déjà"
+fi
+
+# --- Configuration du répertoire SFTP ---
+echo "Configuration du répertoire SFTP..."
+mkdir -p "$SFTP_CHROOT"
+mkdir -p "$SFTP_CHROOT/upload"
+mkdir -p "$SFTP_CHROOT/download"
+
+# --- Attribution des permissions pour SFTP ---
+chown root:root "$SFTP_CHROOT"
+chmod 755 "$SFTP_CHROOT"
+chown "$SFTP_USER:$SFTP_USER" "$SFTP_CHROOT/upload"
+chown "$SFTP_USER:$SFTP_USER" "$SFTP_CHROOT/download"
+chmod 755 "$SFTP_CHROOT/upload"
+chmod 755 "$SFTP_CHROOT/download"
+
+# --- Configuration SSH pour SFTP (chroot) ---
+echo "Configuration SSH pour SFTP..."
+if ! grep -q "Match User $SFTP_USER" /etc/ssh/sshd_config; then
+    cat >> /etc/ssh/sshd_config << EOF
+
+# Configuration SFTP pour $SFTP_USER
+Match User $SFTP_USER
+    ChrootDirectory $SFTP_CHROOT
+    ForceCommand internal-sftp
+    AllowTcpForwarding no
+    X11Forwarding no
+EOF
+    echo "Configuration SSH pour SFTP ajoutée"
+else
+    echo "Configuration SSH pour SFTP existe déjà"
+fi
+
+# --- Redémarrage du service SSH ---
+systemctl restart sshd
+
+echo "Configuration des utilisateurs terminée !"
+echo "Utilisateur principal: $MAIN_USER (mot de passe: $MAIN_USER_PASSWORD)"
+echo "Utilisateur SFTP: $SFTP_USER (mot de passe: $SFTP_USER_PASSWORD)"
+echo "Répertoire SFTP: $SFTP_CHROOT"
+echo "==============================================="
+
+
+# --------------------------------------------------------
 # --- TÉLÉCHARGEMENT ET INSTALLATION DE PRESTASHOP 9.0 ---
+# --------------------------------------------------------
+
 echo "Téléchargement et installation de PrestaShop 9.0..."
 
-# Création du répertoire de destination
+# --- Création du répertoire de destination ---
 DEST_DIR="/var/www/html/$DOMAIN_NAME"
 sudo mkdir -p "$DEST_DIR"
 cd "$DEST_DIR"
 
-# Téléchargement de l'archive de PrestaShop
+# --- Téléchargement de l'archive de PrestaShop ---
 echo "Téléchargement de PrestaShop..."
 wget -O prestashop-installer.zip "https://assets.prestashop3.com/dst/edition/corporate/9.0.0-1.0/prestashop_edition_classic_version_9.0.0-1.0.zip?source=docker"
 
-# Décompression de la première archive (fichiers d'installation)
+# --- Décompression de la première archive (fichiers d'installation) ---
 echo "Décompression de la première archive (fichiers d'installation)..."
 sudo unzip -q prestashop-installer.zip -d "$DEST_DIR"
 sudo rm prestashop-installer.zip
 
-# Diagnostic : afficher le contenu après la première extraction
+# --- Diagnostic : afficher le contenu après la première extraction ---
 echo "Contenu après la première extraction:"
 ls -la "$DEST_DIR"
 
-# Recherche et extraction du fichier prestashop.zip dans les fichiers d'installation
+# --- Recherche et extraction du fichier prestashop.zip dans les fichiers d'installation ---
 echo "Extraction du fichier prestashop.zip dans les fichiers d'installation..."
 cd "$DEST_DIR"
 sudo unzip -o -q prestashop.zip
 
-# Diagnostic : afficher le contenu après la deuxième extraction
+# --- Diagnostic : afficher le contenu après la deuxième extraction ---
 echo "Contenu après la deuxième extraction:"
 ls -la "$DEST_DIR"
 
-# Diagnostic : Fichiers PrestaShop extraits avec succès !
+# --- Diagnostic : Fichiers PrestaShop extraits avec succès ! ---
 echo "Fichiers PrestaShop extraits avec succès !"
 
-# Ajustement des permissions pour le serveur web (optimisé)
+# --- Ajustement des permissions pour le serveur web (optimisé) ---
 echo "Réglage des permissions pour le serveur web..."
 sudo chown -R www-data:www-data "$DEST_DIR"
-# Optimisation : utilisation de chmod avec -R et -type pour plus de rapidité
+# --- Optimisation : utilisation de chmod avec -R et -type pour plus de rapidité ---
 sudo chmod -R 755 "$DEST_DIR"
 sudo find "$DEST_DIR" -type f -print0 | sudo xargs -0 chmod 644
 
+# --------------------------------------------------------
 # --- CRÉATION DE LA BASE DE DONNÉES MYSQL ---
+# --------------------------------------------------------
+
 echo "Création de la base de données MySQL..."
 
-# Création de la base de données et de l'utilisateur si nécessaire
+# --- Création de la base de données et de l'utilisateur si nécessaire ---
 echo "Création de la base de données '$DB_NAME'..."
 sudo mysql -e "DROP DATABASE IF EXISTS \`$DB_NAME\`;"
 sudo mysql -e "CREATE DATABASE IF NOT EXISTS \`$DB_NAME\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
@@ -94,27 +211,25 @@ sudo mysql -e "FLUSH PRIVILEGES;"
 
 echo "Base de données '$DB_NAME' créée avec succès !"
 
-# Activation des modules Apache nécessaires
-echo "Activation des modules Apache nécessaires..."
-sudo a2enmod rewrite ssl headers deflate expires
-sudo systemctl restart apache2
-
+# --------------------------------------------------------
 # --- INSTALLATION AUTOMATIQUE VIA CLI PRESTASHOP ---
+# --------------------------------------------------------
+
 echo "Démarrage de l'installation automatique de PrestaShop..."
 
-# Attendre que les services soient prêts
+# --- Attendre que les services soient prêts ---
 sleep 3
 
-# Fonction pour effectuer l'installation automatique via CLI
+# --- Fonction pour effectuer l'installation automatique via CLI ---
 install_prestashop_cli() {
     echo "Tentative d'installation via CLI..."
     
-    # Vérifier si le CLI d'installation existe
+    # --- Vérifier si le CLI d'installation existe ---
     if [ -f "$DEST_DIR/install/index_cli.php" ]; then
         echo "Utilisation du CLI d'installation..."
         cd "$DEST_DIR"
         
-        # Exécution de l'installation CLI avec l'URL correcte
+        # --- Exécution de l'installation CLI avec l'URL correcte ---
         php ${DEST_DIR}/install/index_cli.php \
             --domain="$VPS_IP" \
             --base_uri="$DOMAIN_NAME" \
@@ -160,35 +275,35 @@ install_prestashop_cli() {
 }
 
 
-# Tentative d'installation automatique
+# --- Tentative d'installation automatique ---
 echo "Démarrage des tentatives d'installation automatique..."
 
-# Essayer d'abord l'installation CLI
+# --- Essayer d'abord l'installation CLI ---
 if install_prestashop_cli; then
     echo "Installation CLI réussie !"
 else
     echo "Installation automatique échouée. Configuration manuelle nécessaire."
 fi
 
-# Nettoyage des fichiers temporaires
+# --- Nettoyage des fichiers temporaires ---
 rm -f /tmp/auto_install.php
 rm -f install_params_cli.php
 
-# Suppression du dossier d'installation pour la sécurité
+# --- Suppression du dossier d'installation pour la sécurité ---
 if [ -d "$DEST_DIR/install" ]; then
     echo "Suppression du dossier d'installation pour la sécurité..."
     sudo rm -rf "$DEST_DIR/install"
 fi
 
-# Redémarrage d'Apache pour s'assurer que tout fonctionne
+# --- Redémarrage d'Apache pour s'assurer que tout fonctionne ---
 sudo systemctl restart apache2
 
 cd "$DEST_DIR"
 
-# Renommage du dossier admin pour la sécurité
+# --- Renommage du dossier admin pour la sécurité ---
 echo "Renommage du dossier admin pour la sécurité..."
 
-# Recherche du dossier admin qui n'est pas admin-api
+# --- Recherche du dossier admin qui n'est pas admin-api ---
 ADMIN_DIR=$(find . -maxdepth 1 -type d -name "admin*" | grep -v "admin-api" | head -1)
 
 if [ -n "$ADMIN_DIR" ]; then
@@ -201,19 +316,42 @@ else
     echo "Aucun dossier admin trouvé."
 fi
 
+# ----------------------------------------------------------------
 # --- RESTAURATION DES DONNÉES PRESTASHOP DEPUIS LE SECOND VPS ---
+# ----------------------------------------------------------------
+
 echo "----------------------------------------"
 echo "Début de la restauration des données PrestaShop..."
 echo "----------------------------------------"
 
-# Création du dossier de backup local
+# --- Création du dossier de backup local ---
 mkdir -p $BACKUP_DIR
 
-# Téléchargement des fichiers de backup depuis le serveur distant
+# --- Téléchargement des fichiers de backup depuis le serveur distant ---
 echo "Téléchargement des fichiers de backup depuis le serveur distant..."
-rsync -avz -e "ssh -i ~/.ssh/backup_key" $REMOTE_USER@$REMOTE_HOST:$REMOTE_DIR/ $BACKUP_DIR/
 
-# Vérification que les fichiers de backup sont présents
+# --- Vérification de la connexion SSH avant le téléchargement ---
+echo "Vérification de la connexion SSH au serveur distant..."
+if ssh -i ~/.ssh/backup_key -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=10 $REMOTE_USER@$REMOTE_HOST "echo 'Connexion SSH réussie'" 2>/dev/null; then
+    echo "Connexion SSH établie avec succès !"
+else
+    echo "ERREUR: Impossible de se connecter au serveur distant $REMOTE_HOST"
+    echo "Vérifiez que :"
+    echo "1. La clé SSH ~/.ssh/backup_key existe et est correcte"
+    echo "2. L'utilisateur $REMOTE_USER a accès au serveur"
+    echo "3. Le serveur $REMOTE_HOST est accessible"
+    exit 1
+fi
+
+# --- Configuration automatique pour éviter les demandes d'interaction ---
+export RSYNC_RSH="ssh -i ~/.ssh/backup_key -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
+export RSYNC_PASSWORD="alainmmi"
+
+# --- Téléchargement avec réponses automatiques ---
+echo "Début du téléchargement des fichiers de backup..."
+echo "yes" | rsync -avz --progress -e "ssh -i ~/.ssh/backup_key -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null" $REMOTE_USER@$REMOTE_HOST:$REMOTE_DIR/ $BACKUP_DIR/
+
+# --- Vérification que les fichiers de backup sont présents --- 
 if [ ! -d "$BACKUP_DIR/Sakup" ]; then
     echo "ERREUR: Dossier de backup non trouvé. Vérifiez la connexion au serveur distant."
     exit 1
@@ -316,7 +454,10 @@ sudo systemctl restart mariadb
 echo "Nettoyage des fichiers temporaires..."
 rm -rf "$BACKUP_DIR"
 
+# ---------------------
 # --- FIN DU SCRIPT ---
+# ---------------------
+
 echo "----------------------------------------"
 echo "Installation et restauration de PrestaShop terminées !"
 echo "----------------------------------------"
