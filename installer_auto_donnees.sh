@@ -30,8 +30,11 @@ echo "Vérification des dépendances nécessaires..."
 apt update && apt upgrade -y
 
 # Installation des dépendances de base
-sudo apt install -y apache2 mariadb-server php php-mysql php-xml php-mbstring php-gd php-curl unzip wget phpmyadmin openssl pdo_mysql
+sudo apt install -y apache2 mariadb-server php php-mysql php-xml php-mbstring php-gd php-curl unzip wget phpmyadmin openssl
 sudo apt-get install -y php-cli php-zip php-intl php-bcmath php-soap php-imagick php-json php-tokenizer
+
+a2enmod ssl
+a2ensite default-ssl
 
 sudo systemctl restart apache2
 sudo systemctl restart mariadb
