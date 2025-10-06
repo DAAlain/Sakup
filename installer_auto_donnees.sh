@@ -65,6 +65,8 @@ sudo systemctl restart apache2
 sudo systemctl restart mariadb
 echo "Activation des modules Apache et mariadb nécessaires terminée !"
 
+sleep 3
+
 # ---------------------------------
 # --- CONFIGURATION DU Swapfile ---
 # ---------------------------------
@@ -104,9 +106,8 @@ echo "Création des utilisateurs système et SFTP..."
 # --- Création de l'utilisateur principal ---
 echo "Création de l'utilisateur principal '$MAIN_USER'..."
 if ! id "$MAIN_USER" &>/dev/null; then
-    useradd -m -s /bin/bash "$MAIN_USER"
+    adduser --quiet --gecos "" --shell /bin/bash "$MAIN_USER"
     echo "$MAIN_USER:$MAIN_USER_PASSWORD" | chpasswd
-    usermod -aG sudo "$MAIN_USER"
     echo "Utilisateur principal '$MAIN_USER' créé avec succès"
 else
     echo "L'utilisateur '$MAIN_USER' existe déjà"
@@ -115,7 +116,7 @@ fi
 # --- Création de l'utilisateur SFTP ---
 echo "Création de l'utilisateur SFTP '$SFTP_USER'..."
 if ! id "$SFTP_USER" &>/dev/null; then
-    useradd -m -s /bin/false "$SFTP_USER"
+    adduser --quiet --gecos "" --shell /usr/sbin/nologin "$SFTP_USER"
     echo "$SFTP_USER:$SFTP_USER_PASSWORD" | chpasswd
     echo "Utilisateur SFTP '$SFTP_USER' créé avec succès"
 else
@@ -151,6 +152,22 @@ EOF
     echo "Configuration SSH pour SFTP ajoutée"
 else
     echo "Configuration SSH pour SFTP existe déjà"
+fi
+
+# --- Configuration du Subsystem SFTP global ---
+echo "Ajustement de la directive Subsystem SFTP..."
+# 1) Commenter la ligne existante si elle pointe vers sftp-server du système
+if grep -qE '^Subsystem[[:space:]]+sftp[[:space:]]+/usr/lib/openssh/sftp-server' /etc/ssh/sshd_config; then
+    sed -E -i 's@^Subsystem[[:space:]]+sftp[[:space:]]+/usr/lib/openssh/sftp-server@#Subsystem sftp /usr/lib/openssh/sftp-server@' /etc/ssh/sshd_config
+    echo "Ancienne ligne 'Subsystem sftp /usr/lib/openssh/sftp-server' commentée"
+fi
+
+# 2) S'assurer que 'Subsystem sftp internal-sftp' est présent
+if ! grep -qE '^Subsystem[[:space:]]+sftp[[:space:]]+internal-sftp' /etc/ssh/sshd_config; then
+    echo 'Subsystem sftp internal-sftp' >> /etc/ssh/sshd_config
+    echo "Ajout de 'Subsystem sftp internal-sftp'"
+else
+    echo "La directive 'Subsystem sftp internal-sftp' est déjà en place"
 fi
 
 # --- Redémarrage du service SSH ---
