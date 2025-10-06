@@ -42,7 +42,7 @@ SFTP_USER="alainftp"
 MAIN_USER_PASSWORD="$ARG_MAIN_PASS"
 SFTP_USER_PASSWORD="$ARG_SFTP_PASS"
 SFTP_HOME="/home/alainftp"
-SFTP_CHROOT="/var/www/html"
+SFTP_CHROOT="/var/www"
 
 # ------------------------------------
 # --- VÉRIFICATION DES DÉPENDANCES ---
@@ -110,7 +110,10 @@ VHOST_SSL_FILE="/etc/apache2/sites-available/default-ssl.conf"
 if [ -f "$VHOST_SSL_FILE" ]; then
     # N'ajouter que si aucun AllowOverride All n'est déjà défini pour /var/www/html
     if ! grep -qE 'AllowOverride[[:space:]]+All' "$VHOST_SSL_FILE"; then
-        sed -i '/<\/VirtualHost>/i \    <Directory /var/www/html> AllowOverride All <\/Directory>' "$VHOST_SSL_FILE"
+        sed -i '/<\/VirtualHost>/{ i \    <Directory /var/www/html>
+ i \        AllowOverride All
+ i \    </Directory>
+ }' "$VHOST_SSL_FILE"
     fi
     sudo systemctl reload apache2 || sudo systemctl restart apache2
 fi
@@ -196,18 +199,29 @@ fi
 
 # --- Configuration du Subsystem SFTP global ---
 echo "Ajustement de la directive Subsystem SFTP..."
-# 1) Commenter la ligne existante si elle pointe vers sftp-server du système
-if grep -qE '^Subsystem[[:space:]]+sftp[[:space:]]+/usr/lib/openssh/sftp-server' /etc/ssh/sshd_config; then
-    sed -E -i 's@^Subsystem[[:space:]]+sftp[[:space:]]+/usr/lib/openssh/sftp-server@#Subsystem sftp /usr/lib/openssh/sftp-server@' /etc/ssh/sshd_config
-    echo "Ancienne ligne 'Subsystem sftp /usr/lib/openssh/sftp-server' commentée"
-fi
 
-# 2) S'assurer que 'Subsystem sftp internal-sftp' est présent
-if ! grep -qE '^Subsystem[[:space:]]+sftp[[:space:]]+internal-sftp' /etc/ssh/sshd_config; then
-    echo 'Subsystem sftp internal-sftp' >> /etc/ssh/sshd_config
-    echo "Ajout de 'Subsystem sftp internal-sftp'"
+# 1) Si l'ancienne ligne existe, la commenter et insérer juste après 'Subsystem sftp internal-sftp' (si absent)
+if grep -qE '^Subsystem[[:space:]]+sftp[[:space:]]+/usr/lib/openssh/sftp-server' /etc/ssh/sshd_config; then
+    if ! grep -qE '^Subsystem[[:space:]]+sftp[[:space:]]+internal-sftp' /etc/ssh/sshd_config; then
+        # Commente la ligne et insère immédiatement la ligne internal-sftp
+        sed -E -i '/^Subsystem[[:space:]]+sftp[[:space:]]+\/usr\/lib\/openssh\/sftp-server/{
+ s@^Subsystem[[:space:]]+sftp[[:space:]]+/usr/lib/openssh/sftp-server@#Subsystem sftp /usr/lib/openssh/sftp-server\\
+Subsystem sftp internal-sftp@;
+ }' /etc/ssh/sshd_config
+        echo "Ancienne ligne commentée et 'Subsystem sftp internal-sftp' insérée juste après"
+    else
+        # Si internal-sftp existe déjà ailleurs, on ne l'insère pas une seconde fois
+        sed -E -i 's@^Subsystem[[:space:]]+sftp[[:space:]]+/usr/lib/openssh/sftp-server@#Subsystem sftp /usr/lib/openssh/sftp-server@' /etc/ssh/sshd_config
+        echo "Ancienne ligne 'Subsystem sftp /usr/lib/openssh/sftp-server' commentée (internal-sftp déjà présent)"
+    fi
 else
-    echo "La directive 'Subsystem sftp internal-sftp' est déjà en place"
+    # 2) Si l'ancienne ligne n'existe pas, on s'assure que 'Subsystem sftp internal-sftp' est présent (ajout en fin si absent)
+    if ! grep -qE '^Subsystem[[:space:]]+sftp[[:space:]]+internal-sftp' /etc/ssh/sshd_config; then
+        echo 'Subsystem sftp internal-sftp' >> /etc/ssh/sshd_config
+        echo "Ajout de 'Subsystem sftp internal-sftp'"
+    else
+        echo "La directive 'Subsystem sftp internal-sftp' est déjà en place"
+    fi
 fi
 
 # --- Redémarrage du service SSH ---
