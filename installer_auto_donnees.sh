@@ -1,10 +1,23 @@
 #!/bin/bash
 
+# --- PARAMÈTRES EN LIGNE DE COMMANDE ---
+# Usage: ./installer_auto_donnees.sh <mot_de_passe_bdd> <mot_de_passe_admin> <mot_de_passe_main> <mot_de_passe_sftp> <nouveau_nom_admin> <mot_de_passe_remote>
+ARG_DB_PASS="$1"
+ARG_ADMIN_PASS="$2"
+ARG_MAIN_PASS="$3"
+ARG_SFTP_PASS="$4"
+ARG_NEW_ADMIN="$5"
+ARG_REMOTE_PASS="$6"
+if [ -z "$ARG_DB_PASS" ] || [ -z "$ARG_ADMIN_PASS" ] || [ -z "$ARG_MAIN_PASS" ] || [ -z "$ARG_SFTP_PASS" ] || [ -z "$ARG_NEW_ADMIN" ] || [ -z "$ARG_REMOTE_PASS" ]; then
+    echo "Utilisation: $0 <mot_de_passe_bdd> <mot_de_passe_admin> <mot_de_passe_main> <mot_de_passe_sftp> <nouveau_nom_admin> <mot_de_passe_remote>"
+    exit 1
+fi
+
 # --- VARIABLES À PERSONNALISER ---
 DOMAIN_NAME="Sakup" # Remplacez par votre nom de domaine ou adresse IP
 DB_NAME="Sakup"      # Nom de la base de données existante
 DB_USER="alain"    # Nom de l'utilisateur existant (avec tous les droits sur la DB)
-DB_PASS="@NBG40709@" # Mot de passe de l'utilisateur existant
+DB_PASS="$ARG_DB_PASS" # Mot de passe de l'utilisateur existant (fourni en paramètre)
 
 # Configuration pour la restauration des données depuis le second VPS
 REMOTE_USER="alain"
@@ -18,7 +31,7 @@ echo "Adresse IP du VPS détectée : $VPS_IP"
 
 # Informations pour l'installation automatique
 ADMIN_EMAIL="aladrs2003@gmail.com"
-ADMIN_PASSWORD="@NBG40709@"
+ADMIN_PASSWORD="$ARG_ADMIN_PASS"
 SHOP_NAME="Sakup"
 SHOP_COUNTRY="fr"
 SHOP_TIMEZONE="Europe/Paris"
@@ -26,8 +39,8 @@ SHOP_TIMEZONE="Europe/Paris"
 # --- Variables pour les utilisateurs ---
 MAIN_USER="alain"
 SFTP_USER="alainftp"
-MAIN_USER_PASSWORD="@NBG40709@"
-SFTP_USER_PASSWORD="@NBG40709@"
+MAIN_USER_PASSWORD="$ARG_MAIN_PASS"
+SFTP_USER_PASSWORD="$ARG_SFTP_PASS"
 SFTP_HOME="/home/alainftp"
 SFTP_CHROOT="/var/www/html"
 
@@ -149,6 +162,8 @@ echo "Utilisateur SFTP: $SFTP_USER (mot de passe: $SFTP_USER_PASSWORD)"
 echo "Répertoire SFTP: $SFTP_CHROOT"
 echo "==============================================="
 
+# --- Redémarrage d'Apache ---
+systemctl restart apache2
 
 # --------------------------------------------------------
 # --- TÉLÉCHARGEMENT ET INSTALLATION DE PRESTASHOP 9.0 ---
@@ -308,7 +323,7 @@ ADMIN_DIR=$(find . -maxdepth 1 -type d -name "admin*" | grep -v "admin-api" | he
 
 if [ -n "$ADMIN_DIR" ]; then
     ADMIN_CURRENT_NAME=$(basename "$ADMIN_DIR")
-    ADMIN_NEW_NAME="admin_Sak"
+    ADMIN_NEW_NAME="$ARG_NEW_ADMIN"
     sudo mv "$ADMIN_CURRENT_NAME" "$ADMIN_NEW_NAME"
     echo "Dossier '$ADMIN_CURRENT_NAME' renommé en: $ADMIN_NEW_NAME"
     echo "URL d'administration: http://$VPS_IP/$DOMAIN_NAME/$ADMIN_NEW_NAME"
@@ -345,7 +360,7 @@ fi
 
 # --- Configuration automatique pour éviter les demandes d'interaction ---
 export RSYNC_RSH="ssh -i ~/.ssh/backup_key -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
-export RSYNC_PASSWORD="alainmmi"
+export RSYNC_PASSWORD="$ARG_REMOTE_PASS"
 
 # --- Téléchargement avec réponses automatiques ---
 echo "Début du téléchargement des fichiers de backup..."
