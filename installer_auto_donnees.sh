@@ -54,7 +54,7 @@ echo "Vérification des dépendances nécessaires..."
 apt update && apt upgrade -y
 
 # --- Installation des dépendances ---
-sudo apt install -y apache2 mariadb-server php php-mysql php-xml php-mbstring php-gd php-curl unzip wget openssl
+sudo apt install -y apache2 mariadb-server php php-mysql php-xml php-mbstring php-gd php-curl unzip wget openssl sshpass
 sudo apt-get install -y php-cli php-zip php-intl php-bcmath php-soap php-imagick php-json php-tokenizer php-memcached
 
 # --- Activation des modules Apache ---
@@ -109,10 +109,10 @@ echo "Configuration du Swapfile..."
 VHOST_SSL_FILE="/etc/apache2/sites-available/default-ssl.conf"
 if [ -f "$VHOST_SSL_FILE" ]; then
     # N'ajouter que si aucun AllowOverride All n'est déjà défini pour /var/www/html
-    if ! grep -qE '<Directory[[:space:]]+/var/www/html[[:space:]]*>' "$VHOST_SSL_FILE" || ! grep -qE 'AllowOverride[[:space:]]+All' "$VHOST_SSL_FILE"; then
-        sed -i '/<\/VirtualHost>/i \\    <Directory /var/www/html>\\n\\        AllowOverride All\\n\\    </Directory>' "$VHOST_SSL_FILE"
+    if ! grep -qE 'AllowOverride[[:space:]]+All' "$VHOST_SSL_FILE"; then
+        sed -i '/<\/VirtualHost>/i \    <Directory /var/www/html> AllowOverride All <\/Directory>' "$VHOST_SSL_FILE"
     fi
-    sudo systemctl reload apache2
+    sudo systemctl reload apache2 || sudo systemctl restart apache2
 fi
 
 # --- Configuration du Swapfile ---
@@ -144,7 +144,8 @@ echo "Création des utilisateurs système et SFTP..."
 # --- Création de l'utilisateur principal ---
 echo "Création de l'utilisateur principal '$MAIN_USER'..."
 if ! id "$MAIN_USER" &>/dev/null; then
-    adduser --quiet --gecos "" --shell /bin/bash "$MAIN_USER"
+    # Création non interactive de l'utilisateur principal
+    useradd -m -s /bin/bash "$MAIN_USER"
     echo "$MAIN_USER:$MAIN_USER_PASSWORD" | chpasswd
     echo "Utilisateur principal '$MAIN_USER' créé avec succès"
 else
@@ -154,7 +155,8 @@ fi
 # --- Création de l'utilisateur SFTP ---
 echo "Création de l'utilisateur SFTP '$SFTP_USER'..."
 if ! id "$SFTP_USER" &>/dev/null; then
-    adduser --quiet --gecos "" --shell /usr/sbin/nologin "$SFTP_USER"
+    # Création non interactive de l'utilisateur SFTP
+    useradd -m -s /usr/sbin/nologin "$SFTP_USER"
     echo "$SFTP_USER:$SFTP_USER_PASSWORD" | chpasswd
     echo "Utilisateur SFTP '$SFTP_USER' créé avec succès"
 else
@@ -401,25 +403,23 @@ mkdir -p $BACKUP_DIR
 echo "Téléchargement des fichiers de backup depuis le serveur distant..."
 
 # --- Vérification de la connexion SSH avant le téléchargement ---
-echo "Vérification de la connexion SSH au serveur distant..."
-if ssh -i ~/.ssh/backup_key -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=10 $REMOTE_USER@$REMOTE_HOST "echo 'Connexion SSH réussie'" 2>/dev/null; then
+echo "Vérification de la connexion SSH au serveur distant (auth par mot de passe)..."
+if sshpass -p "$ARG_REMOTE_PASS" ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o PreferredAuthentications=password -o PubkeyAuthentication=no -o ConnectTimeout=10 $REMOTE_USER@$REMOTE_HOST "echo 'Connexion SSH réussie'" 2>/dev/null; then
     echo "Connexion SSH établie avec succès !"
 else
-    echo "ERREUR: Impossible de se connecter au serveur distant $REMOTE_HOST"
+    echo "ERREUR: Impossible de se connecter au serveur distant $REMOTE_HOST avec le mot de passe fourni"
     echo "Vérifiez que :"
-    echo "1. La clé SSH ~/.ssh/backup_key existe et est correcte"
+    echo "1. Le mot de passe distant est correct"
     echo "2. L'utilisateur $REMOTE_USER a accès au serveur"
     echo "3. Le serveur $REMOTE_HOST est accessible"
     exit 1
 fi
 
-# --- Configuration automatique pour éviter les demandes d'interaction ---
-export RSYNC_RSH="ssh -i ~/.ssh/backup_key -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
-export RSYNC_PASSWORD="$ARG_REMOTE_PASS"
-
-# --- Téléchargement avec réponses automatiques ---
+# --- Téléchargement avec rsync sur SSH + mot de passe ---
 echo "Début du téléchargement des fichiers de backup..."
-echo "yes" | rsync -avz --progress -e "ssh -i ~/.ssh/backup_key -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null" $REMOTE_USER@$REMOTE_HOST:$REMOTE_DIR/ $BACKUP_DIR/
+sshpass -p "$ARG_REMOTE_PASS" rsync -avz --progress \
+  -e "ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o PreferredAuthentications=password -o PubkeyAuthentication=no" \
+  $REMOTE_USER@$REMOTE_HOST:$REMOTE_DIR/ $BACKUP_DIR/
 
 # --- Vérification que les fichiers de backup sont présents --- 
 if [ ! -d "$BACKUP_DIR/Sakup" ]; then
