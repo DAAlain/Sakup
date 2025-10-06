@@ -1,19 +1,19 @@
 #!/bin/bash
 
 # --- VARIABLES À PERSONNALISER ---
-DOMAIN_NAME="Sakup" # Remplacez par votre nom de domaine ou adresse IP
-DB_NAME="Sakup"      # Nom de la base de données existante
-DB_USER="alain"    # Nom de l'utilisateur existant (avec tous les droits sur la DB)
-DB_PASS="@NBG40709@" # Mot de passe de l'utilisateur existant
+DOMAIN_NAME="mettrenom" # Remplacez par votre nom de domaine ou adresse IP
+DB_NAME="mettrenom"      # Nom de la base de données existante
+DB_USER="mettrenom"    # Nom de l'utilisateur existant (avec tous les droits sur la DB)
+DB_PASS="mettremdp" # Mot de passe de l'utilisateur existant
 
 # Détection automatique de l'adresse IP du VPS
 VPS_IP=$(curl -s ifconfig.me 2>/dev/null || curl -s ipinfo.io/ip 2>/dev/null || hostname -I | awk '{print $1}' 2>/dev/null || echo "localhost")
 echo "Adresse IP du VPS détectée : $VPS_IP"
 
 # Informations pour l'installation automatique
-ADMIN_EMAIL="aladrs2003@gmail.com"
-ADMIN_PASSWORD="@NBG40709@"
-SHOP_NAME="Sakup"
+ADMIN_EMAIL="mettreemail"
+ADMIN_PASSWORD="mettremdp"
+SHOP_NAME="mettrenom"
 SHOP_COUNTRY="fr"
 SHOP_TIMEZONE="Europe/Paris"
 
