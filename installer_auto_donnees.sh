@@ -54,13 +54,45 @@ echo "Vérification des dépendances nécessaires..."
 apt update && apt upgrade -y
 
 # --- Installation des dépendances ---
-sudo apt install -y apache2 mariadb-server php php-mysql php-xml php-mbstring php-gd php-curl unzip wget phpmyadmin openssl
+sudo apt install -y apache2 mariadb-server php php-mysql php-xml php-mbstring php-gd php-curl unzip wget openssl
 sudo apt-get install -y php-cli php-zip php-intl php-bcmath php-soap php-imagick php-json php-tokenizer php-memcached
 
 # --- Activation des modules Apache ---
 echo "Activation des modules Apache et mariadb nécessaires..."
 sudo a2enmod rewrite ssl headers deflate expires
 sudo a2ensite default-ssl
+
+# --- Installation de phpMyAdmin ---
+
+export DEBIAN_FRONTEND=noninteractive
+
+# Préconfiguration debconf: activer Apache, laisser dbconfig-common désactivé (plus sûr avec MariaDB root unix_socket)
+echo "phpmyadmin phpmyadmin/reconfigure-webserver multiselect apache2" | debconf-set-selections
+echo "phpmyadmin phpmyadmin/dbconfig-install boolean false" | debconf-set-selections
+
+# Installer phpMyAdmin
+apt-get update
+apt-get install -y phpmyadmin
+
+# Activer la conf Apache pour phpMyAdmin si non activée par le paquet
+if ! [ -e /etc/apache2/conf-enabled/phpmyadmin.conf ] && [ -e /etc/apache2/conf-available/phpmyadmin.conf ]; then
+    a2enconf phpmyadmin
+fi
+
+# Générer/assurer un blowfish_secret dans /etc/phpmyadmin/config.inc.php
+if ! grep -q '\$cfg\['\''blowfish_secret'\''\]' /etc/phpmyadmin/config.inc.php 2>/dev/null; then
+    SECRET=$(openssl rand -base64 32 | tr -d '\n')
+    sed -i "s|\$cfg\['blowfish_secret'\] = ''|\$cfg['blowfish_secret'] = '$SECRET'|" /etc/phpmyadmin/config.inc.php 2>/dev/null || true
+    # Si la ligne n'existe pas, on l'ajoute proprement
+    if ! grep -q '\$cfg\['\''blowfish_secret'\''\]' /etc/phpmyadmin/config.inc.php; then
+        echo "\$cfg['blowfish_secret'] = '$SECRET';" >> /etc/phpmyadmin/config.inc.php
+    fi
+fi
+
+# Redémarrer Apache
+systemctl reload apache2 || systemctl restart apache2
+
+# --- Redémarrage des services ---
 sudo systemctl restart apache2
 sudo systemctl restart mariadb
 echo "Activation des modules Apache et mariadb nécessaires terminée !"
@@ -73,9 +105,15 @@ sleep 3
 
 echo "Configuration du Swapfile..."
 
-# --- Configuration default-ssl.conf ---
-echo "<Directory /var/www/html>AllowOverride All</Directory>" >> /etc/apache2/sites-available/default-ssl.conf
-sudo systemctl restart apache2
+# --- Insérer AllowOverride All à la fin du VirtualHost SSL ---
+VHOST_SSL_FILE="/etc/apache2/sites-available/default-ssl.conf"
+if [ -f "$VHOST_SSL_FILE" ]; then
+    # N'ajouter que si aucun AllowOverride All n'est déjà défini pour /var/www/html
+    if ! grep -qE '<Directory[[:space:]]+/var/www/html[[:space:]]*>' "$VHOST_SSL_FILE" || ! grep -qE 'AllowOverride[[:space:]]+All' "$VHOST_SSL_FILE"; then
+        sed -i '/<\/VirtualHost>/i \\    <Directory /var/www/html>\\n\\        AllowOverride All\\n\\    </Directory>' "$VHOST_SSL_FILE"
+    fi
+    sudo systemctl reload apache2
+fi
 
 # --- Configuration du Swapfile ---
 dd if=/dev/zero of=/swapfile1 bs=1024 count=1048576
