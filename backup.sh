@@ -1,8 +1,9 @@
 #!/bin/bash
 
 ARG_DB_PASS="$1"
-if [ -z "$ARG_DB_PASS" ]; then
-    echo "Utilisation: $0 <mot_de_passe_bdd>"
+ARG_REMOTE_PASS="$2"
+if [ -z "$ARG_DB_PASS" ] || [ -z "$ARG_REMOTE_PASS" ]; then
+    echo "Utilisation: $0 <mot_de_passe_bdd> <mot_de_passe_remote>"
     exit 1
 fi
 
@@ -47,10 +48,27 @@ tar -czf $BACKUP_DIR/Sakup/sakup_translations.tar.gz -C $PS_DIR translations
 tar -czf $BACKUP_DIR/Sakup/sakup_server_config.tar.gz -C $PS_DIR .htaccess robots.txt
 
 # === ENVOI SUR SERVEUR DISTANT ===
+# Vérification de la connexion SSH avant l'envoi
+echo "Vérification de la connexion SSH au serveur distant (auth par mot de passe)..."
+if sshpass -p "$ARG_REMOTE_PASS" ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o PreferredAuthentications=password -o PubkeyAuthentication=no -o ConnectTimeout=10 $REMOTE_USER@$REMOTE_HOST "echo 'Connexion SSH réussie'" 2>/dev/null; then
+    echo "Connexion SSH établie avec succès !"
+else
+    echo "ERREUR: Impossible de se connecter au serveur distant $REMOTE_HOST avec le mot de passe fourni"
+    echo "Vérifiez que :"
+    echo "1. Le mot de passe distant est correct"
+    echo "2. L'utilisateur $REMOTE_USER a accès au serveur"
+    echo "3. Le serveur $REMOTE_HOST est accessible"
+    exit 1
+fi
+
 # Créer le dossier distant s'il n'existe pas
-ssh -i ~/.ssh/backup_key $REMOTE_USER@$REMOTE_HOST "mkdir -p $REMOTE_DIR"
-# Envoyer les fichiers
-rsync -avz -e "ssh -i ~/.ssh/backup_key" $BACKUP_DIR/ $REMOTE_USER@$REMOTE_HOST:$REMOTE_DIR/
+sshpass -p "$ARG_REMOTE_PASS" ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o PreferredAuthentications=password -o PubkeyAuthentication=no $REMOTE_USER@$REMOTE_HOST "mkdir -p $REMOTE_DIR"
+
+# Envoyer les fichiers avec rsync sur SSH + mot de passe
+echo "Début de l'envoi des fichiers de backup..."
+sshpass -p "$ARG_REMOTE_PASS" rsync -avz --progress \
+  -e "ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o PreferredAuthentications=password -o PubkeyAuthentication=no" \
+  $BACKUP_DIR/ $REMOTE_USER@$REMOTE_HOST:$REMOTE_DIR/
 
 # === NETTOYAGE LOCAL (supprimer anciens fichiers de backup) ===
 # Les fichiers sont automatiquement écrasés à chaque sauvegarde
