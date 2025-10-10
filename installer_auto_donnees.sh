@@ -437,11 +437,12 @@ sshpass -p "$ARG_REMOTE_PASS" rsync -avz --progress \
 
 # --- Vérification que les fichiers de backup sont présents --- 
 if [ ! -d "$BACKUP_DIR/Sakup" ]; then
-    echo "ERREUR: Dossier de backup non trouvé. Vérifiez la connexion au serveur distant."
-    exit 1
+    echo "ATTENTION: Dossier de backup non trouvé. Les étapes de restauration seront ignorées."
+else
+    echo "Fichiers de backup téléchargés avec succès !" 
 fi
 
-echo "Fichiers de backup téléchargés avec succès !"
+
 
 # --- RESTAURATION DE LA BASE DE DONNÉES ---
 echo "Restauration de la base de données..."
