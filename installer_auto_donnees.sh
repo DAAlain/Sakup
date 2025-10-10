@@ -546,7 +546,7 @@ rm -rf "$BACKUP_DIR"
 echo "Début de la création du certificat Let's Encrypt"
 
 echo "Desactivation des sites par défaut"
-a2dissite 000-default.
+a2dissite 000-default.conf
 a2dissite default-ssl.conf
 systemctl reload apache2
 
