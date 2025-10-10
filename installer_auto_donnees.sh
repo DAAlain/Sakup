@@ -318,7 +318,7 @@ install_prestashop_cli() {
         # --- Exécution de l'installation CLI avec l'URL correcte ---
         php ${DEST_DIR}/install/index_cli.php \
             --domain="ip87-106-123-50.pbiaas.com" \
-            --base_uri="$DOMAIN_NAME" \
+            --base_uri="/" \
             --language="fr" \
             --db_server="localhost" \
             --db_name="$DB_NAME" \
@@ -397,7 +397,7 @@ if [ -n "$ADMIN_DIR" ]; then
     ADMIN_NEW_NAME="$ARG_NEW_ADMIN"
     sudo mv "$ADMIN_CURRENT_NAME" "$ADMIN_NEW_NAME"
     echo "Dossier '$ADMIN_CURRENT_NAME' renommé en: $ADMIN_NEW_NAME"
-    echo "URL d'administration: http://ip87-106-123-50.pbiaas.com/$DOMAIN_NAME/$ADMIN_NEW_NAME"
+    echo "URL d'administration: http://ip87-106-123-50.pbiaas.com/$ADMIN_NEW_NAME"
 else
     echo "Aucun dossier admin trouvé."
 fi
@@ -539,6 +539,56 @@ echo "Nettoyage des fichiers temporaires..."
 rm -rf "$BACKUP_DIR"
 
 # ---------------------
+# --- Let's Encrypt ---
+# ---------------------
+
+echo "Début de la création du certificat Let's Encrypt"
+
+echo "Desactivation des sites par défaut"
+a2dissite 000-default.
+a2dissite default-ssl.conf
+systemctl reload apache2
+
+echo "Création d'une nouvelle configuration apache"
+
+# Création du fichier de configuration Apache pour le site Sakup
+cat << 'APACHECONF' | sudo tee /etc/apache2/sites-available/sakup.conf >/dev/null
+<VirtualHost *:80>
+    ServerName ip-87-106-123-50.pbiaas.com
+    
+    DocumentRoot /var/www/html/${DOMAIN_NAME}
+
+    <Directory /var/www/html/${DOMAIN_NAME}>
+        Options Indexes FollowSymLinks
+        AllowOverride All
+        Require all granted
+    </Directory>
+
+    ErrorLog ${APACHE_LOG_DIR}/sakup_error.log
+    CustomLog ${APACHE_LOG_DIR}/sakup_access.log combined
+</VirtualHost>
+APACHECONF
+
+# Activation du site et rechargement d'Apache
+a2ensite sakup.conf
+systemctl reload apache2
+
+# Preparation du certificat Let's Encrypt
+
+sudo apt install certbot python3-certbot-apache -y
+sudo certbot \
+  --apache \
+  --non-interactive \
+  --agree-tos \
+  --email "$ADMIN_EMAIL" \
+  --redirect \
+  -d ip87-106-123-50.pbiaas.com
+
+systemctl reload apache2
+
+echo "Fin de la création du certificat Let's Encrypt"
+
+# ---------------------
 # --- FIN DU SCRIPT ---
 # ---------------------
 
@@ -546,8 +596,8 @@ echo "----------------------------------------"
 echo "Installation et restauration de PrestaShop terminées !"
 echo "----------------------------------------"
 echo "Votre boutique PrestaShop est maintenant accessible à :"
-echo "Boutique : http://ip87-106-123-50.pbiaas.com/$DOMAIN_NAME"
-echo "Administration : http://ip87-106-123-50.pbiaas.com/$DOMAIN_NAME/$ADMIN_NEW_NAME"
+echo "Boutique : http://ip87-106-123-50.pbiaas.com"
+echo "Administration : http://ip87-106-123-50.pbiaas.com/$ADMIN_NEW_NAME"
 echo "" 
 echo "Informations de connexion administrateur :"
 echo "Email : $ADMIN_EMAIL"
