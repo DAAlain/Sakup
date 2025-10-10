@@ -317,7 +317,7 @@ install_prestashop_cli() {
         
         # --- Exécution de l'installation CLI avec l'URL correcte ---
         php ${DEST_DIR}/install/index_cli.php \
-            --domain="$VPS_IP" \
+            --domain="http://ip87-106-123-50.pbiaas.com" \
             --base_uri="$DOMAIN_NAME" \
             --language="fr" \
             --db_server="localhost" \
