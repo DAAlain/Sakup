@@ -317,7 +317,7 @@ install_prestashop_cli() {
         
         # --- Exécution de l'installation CLI avec l'URL correcte ---
         php ${DEST_DIR}/install/index_cli.php \
-            --domain="http://ip87-106-123-50.pbiaas.com" \
+            --domain="ip87-106-123-50.pbiaas.com" \
             --base_uri="$DOMAIN_NAME" \
             --language="fr" \
             --db_server="localhost" \
@@ -397,7 +397,7 @@ if [ -n "$ADMIN_DIR" ]; then
     ADMIN_NEW_NAME="$ARG_NEW_ADMIN"
     sudo mv "$ADMIN_CURRENT_NAME" "$ADMIN_NEW_NAME"
     echo "Dossier '$ADMIN_CURRENT_NAME' renommé en: $ADMIN_NEW_NAME"
-    echo "URL d'administration: http://$VPS_IP/$DOMAIN_NAME/$ADMIN_NEW_NAME"
+    echo "URL d'administration: http://ip87-106-123-50.pbiaas.com/$DOMAIN_NAME/$ADMIN_NEW_NAME"
 else
     echo "Aucun dossier admin trouvé."
 fi
@@ -546,8 +546,8 @@ echo "----------------------------------------"
 echo "Installation et restauration de PrestaShop terminées !"
 echo "----------------------------------------"
 echo "Votre boutique PrestaShop est maintenant accessible à :"
-echo "Boutique : http://$VPS_IP/$DOMAIN_NAME"
-echo "Administration : http://$VPS_IP/$DOMAIN_NAME/$ADMIN_NEW_NAME"
+echo "Boutique : http://ip87-106-123-50.pbiaas.com/$DOMAIN_NAME"
+echo "Administration : http://ip87-106-123-50.pbiaas.com/$DOMAIN_NAME/$ADMIN_NEW_NAME"
 echo "" 
 echo "Informations de connexion administrateur :"
 echo "Email : $ADMIN_EMAIL"
