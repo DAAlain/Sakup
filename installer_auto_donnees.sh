@@ -216,17 +216,37 @@ sudo usermod -aG www-data $SFTP_USER4
 
 # --- Configuration du répertoire SFTP ---
 echo "Configuration du répertoire SFTP..."
+
+# Création du chroot avec les bonnes permissions (DOIT être 755 et root:root)
 mkdir -p "$SFTP_CHROOT"
+chown root:root "$SFTP_CHROOT"
+chmod 755 "$SFTP_CHROOT"
+
+# Création des dossiers partagés (accessibles par tous les utilisateurs)
 mkdir -p "$SFTP_CHROOT/upload"
 mkdir -p "$SFTP_CHROOT/download"
 
-# --- Attribution des permissions pour SFTP ---
-chown root:root "$SFTP_CHROOT"
-chmod 775 "$SFTP_CHROOT"
-chown "$SFTP_USER:$SFTP_USER" "$SFTP_CHROOT/upload"
-chown "$SFTP_USER:$SFTP_USER" "$SFTP_CHROOT/download"
+# Création des dossiers personnels pour chaque utilisateur
+mkdir -p "$SFTP_CHROOT/$SFTP_USER"
+mkdir -p "$SFTP_CHROOT/$SFTP_USER2"
+mkdir -p "$SFTP_CHROOT/$SFTP_USER3"
+mkdir -p "$SFTP_CHROOT/$SFTP_USER4"
+
+# Attribution des permissions pour les dossiers partagés (groupe www-data pour partage)
+chown root:www-data "$SFTP_CHROOT/upload"
+chown root:www-data "$SFTP_CHROOT/download"
 chmod 775 "$SFTP_CHROOT/upload"
 chmod 775 "$SFTP_CHROOT/download"
+
+# Attribution des permissions pour les dossiers personnels
+chown "$SFTP_USER:$SFTP_USER" "$SFTP_CHROOT/$SFTP_USER"
+chown "$SFTP_USER2:$SFTP_USER2" "$SFTP_CHROOT/$SFTP_USER2"
+chown "$SFTP_USER3:$SFTP_USER3" "$SFTP_CHROOT/$SFTP_USER3"
+chown "$SFTP_USER4:$SFTP_USER4" "$SFTP_CHROOT/$SFTP_USER4"
+chmod 755 "$SFTP_CHROOT/$SFTP_USER"
+chmod 755 "$SFTP_CHROOT/$SFTP_USER2"
+chmod 755 "$SFTP_CHROOT/$SFTP_USER3"
+chmod 755 "$SFTP_CHROOT/$SFTP_USER4"
 
 # --- Configuration SSH pour SFTP (chroot) ---
 echo "Configuration SSH pour SFTP..."
