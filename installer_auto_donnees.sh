@@ -1,15 +1,18 @@
 #!/bin/bash
 
 # --- PARAMÈTRES EN LIGNE DE COMMANDE ---
-# Usage: ./installer_auto_donnees.sh <mot_de_passe_bdd> <mot_de_passe_admin> <mot_de_passe_main> <mot_de_passe_sftp> <nouveau_nom_admin> <mot_de_passe_remote>
+# Usage: ./installer_auto_donnees.sh <mot_de_passe_bdd> <mot_de_passe_admin> <mot_de_passe_main> <mot_de_passe_sftp> <nouveau_nom_admin> <mot_de_passe_remote> <mot_de_passe_sftp2> <mot_de_passe_sftp3> <mot_de_passe_sftp4>
 ARG_DB_PASS="$1"
 ARG_ADMIN_PASS="$2"
 ARG_MAIN_PASS="$3"
 ARG_SFTP_PASS="$4"
 ARG_NEW_ADMIN="$5"
 ARG_REMOTE_PASS="$6"
-if [ -z "$ARG_DB_PASS" ] || [ -z "$ARG_ADMIN_PASS" ] || [ -z "$ARG_MAIN_PASS" ] || [ -z "$ARG_SFTP_PASS" ] || [ -z "$ARG_NEW_ADMIN" ] || [ -z "$ARG_REMOTE_PASS" ]; then
-    echo "Utilisation: $0 <mot_de_passe_bdd> <mot_de_passe_admin> <mot_de_passe_main> <mot_de_passe_sftp> <nouveau_nom_admin> <mot_de_passe_remote>"
+ARG_SFTP_PASS2="$7"
+ARG_SFTP_PASS3="$8"
+ARG_SFTP_PASS4="$9"
+if [ -z "$ARG_DB_PASS" ] || [ -z "$ARG_ADMIN_PASS" ] || [ -z "$ARG_MAIN_PASS" ] || [ -z "$ARG_SFTP_PASS" ] || [ -z "$ARG_NEW_ADMIN" ] || [ -z "$ARG_REMOTE_PASS" ] || [ -z "$ARG_SFTP_PASS2" ] || [ -z "$ARG_SFTP_PASS3" ] || [ -z "$ARG_SFTP_PASS4" ]; then
+    echo "Utilisation: $0 <mot_de_passe_bdd> <mot_de_passe_admin> <mot_de_passe_main> <mot_de_passe_sftp> <nouveau_nom_admin> <mot_de_passe_remote> <mot_de_passe_sftp2> <mot_de_passe_sftp3> <mot_de_passe_sftp4>"
     exit 1
 fi
 
@@ -39,9 +42,18 @@ SHOP_TIMEZONE="Europe/Paris"
 # --- Variables pour les utilisateurs ---
 MAIN_USER="alain"
 SFTP_USER="alainftp"
+SFTP_USER2="salimftp"
+SFTP_USER3="sakinaftp"
+SFTP_USER4="tomftp"
 MAIN_USER_PASSWORD="$ARG_MAIN_PASS"
 SFTP_USER_PASSWORD="$ARG_SFTP_PASS"
+SFTP_USER_PASSWORD2="$ARG_SFTP_PASS2"
+SFTP_USER_PASSWORD3="$ARG_SFTP_PASS3"
+SFTP_USER_PASSWORD4="$ARG_SFTP_PASS4"
 SFTP_HOME="/home/alainftp"
+SFTP_HOME2="/home/salimftp"
+SFTP_HOME3="/home/sakinaftp"
+SFTP_HOME4="/home/tomftp"
 SFTP_CHROOT="/var/www"
 
 # ------------------------------------
@@ -155,7 +167,7 @@ else
     echo "L'utilisateur '$MAIN_USER' existe déjà"
 fi
 
-# --- Création de l'utilisateur SFTP ---
+# --- Création des utilisateurs SFTP ---
 echo "Création de l'utilisateur SFTP '$SFTP_USER'..."
 if ! id "$SFTP_USER" &>/dev/null; then
     # Création non interactive de l'utilisateur SFTP
@@ -166,6 +178,42 @@ else
     echo "L'utilisateur SFTP '$SFTP_USER' existe déjà"
 fi
 
+echo "Création de l'utilisateur SFTP '$SFTP_USER2'..."
+if ! id "$SFTP_USER2" &>/dev/null; then
+    # Création non interactive de l'utilisateur SFTP
+    useradd -m -s /usr/sbin/nologin "$SFTP_USER2"
+    echo "$SFTP_USER2:$SFTP_USER_PASSWORD2" | chpasswd
+    echo "Utilisateur SFTP '$SFTP_USER2' créé avec succès"
+else
+    echo "L'utilisateur SFTP '$SFTP_USER2' existe déjà"
+fi
+
+echo "Création de l'utilisateur SFTP '$SFTP_USER3'..."
+if ! id "$SFTP_USER3" &>/dev/null; then
+    # Création non interactive de l'utilisateur SFTP
+    useradd -m -s /usr/sbin/nologin "$SFTP_USER3"
+    echo "$SFTP_USER3:$SFTP_USER_PASSWORD3" | chpasswd
+    echo "Utilisateur SFTP '$SFTP_USER3' créé avec succès"
+else
+    echo "L'utilisateur SFTP '$SFTP_USER3' existe déjà"
+fi
+
+echo "Création de l'utilisateur SFTP '$SFTP_USER4'..."
+if ! id "$SFTP_USER4" &>/dev/null; then
+    # Création non interactive de l'utilisateur SFTP
+    useradd -m -s /usr/sbin/nologin "$SFTP_USER4"
+    echo "$SFTP_USER4:$SFTP_USER_PASSWORD4" | chpasswd
+    echo "Utilisateur SFTP '$SFTP_USER4' créé avec succès"
+else
+    echo "L'utilisateur SFTP '$SFTP_USER4' existe déjà"
+fi
+
+sudo usermod -aG www-data $SFTP_USER
+sudo usermod -aG www-data $SFTP_USER2
+sudo usermod -aG www-data $SFTP_USER3
+sudo usermod -aG www-data $SFTP_USER4
+
+
 # --- Configuration du répertoire SFTP ---
 echo "Configuration du répertoire SFTP..."
 mkdir -p "$SFTP_CHROOT"
@@ -174,11 +222,11 @@ mkdir -p "$SFTP_CHROOT/download"
 
 # --- Attribution des permissions pour SFTP ---
 chown root:root "$SFTP_CHROOT"
-chmod 755 "$SFTP_CHROOT"
+chmod 775 "$SFTP_CHROOT"
 chown "$SFTP_USER:$SFTP_USER" "$SFTP_CHROOT/upload"
 chown "$SFTP_USER:$SFTP_USER" "$SFTP_CHROOT/download"
-chmod 755 "$SFTP_CHROOT/upload"
-chmod 755 "$SFTP_CHROOT/download"
+chmod 775 "$SFTP_CHROOT/upload"
+chmod 775 "$SFTP_CHROOT/download"
 
 # --- Configuration SSH pour SFTP (chroot) ---
 echo "Configuration SSH pour SFTP..."
@@ -195,6 +243,54 @@ EOF
     echo "Configuration SSH pour SFTP ajoutée"
 else
     echo "Configuration SSH pour SFTP existe déjà"
+fi
+
+echo "Configuration SSH pour SFTP '$SFTP_USER2'..."
+if ! grep -q "Match User $SFTP_USER2" /etc/ssh/sshd_config; then
+    cat >> /etc/ssh/sshd_config << EOF
+
+# Configuration SFTP pour $SFTP_USER2
+Match User $SFTP_USER2
+    ChrootDirectory $SFTP_CHROOT
+    ForceCommand internal-sftp
+    AllowTcpForwarding no
+    X11Forwarding no
+EOF
+    echo "Configuration SSH pour SFTP '$SFTP_USER2' ajoutée"
+else
+    echo "Configuration SSH pour SFTP '$SFTP_USER2' existe déjà"
+fi
+
+echo "Configuration SSH pour SFTP '$SFTP_USER3'..."
+if ! grep -q "Match User $SFTP_USER3" /etc/ssh/sshd_config; then
+    cat >> /etc/ssh/sshd_config << EOF
+
+# Configuration SFTP pour $SFTP_USER3
+Match User $SFTP_USER3
+    ChrootDirectory $SFTP_CHROOT
+    ForceCommand internal-sftp
+    AllowTcpForwarding no
+    X11Forwarding no
+EOF
+    echo "Configuration SSH pour SFTP '$SFTP_USER3' ajoutée"
+else
+    echo "Configuration SSH pour SFTP '$SFTP_USER3' existe déjà"
+fi
+
+echo "Configuration SSH pour SFTP '$SFTP_USER4'..."
+if ! grep -q "Match User $SFTP_USER4" /etc/ssh/sshd_config; then
+    cat >> /etc/ssh/sshd_config << EOF
+
+# Configuration SFTP pour $SFTP_USER4
+Match User $SFTP_USER4
+    ChrootDirectory $SFTP_CHROOT
+    ForceCommand internal-sftp
+    AllowTcpForwarding no
+    X11Forwarding no
+EOF
+    echo "Configuration SSH pour SFTP '$SFTP_USER4' ajoutée"
+else
+    echo "Configuration SSH pour SFTP '$SFTP_USER4' existe déjà"
 fi
 
 # --- Configuration du Subsystem SFTP global ---
@@ -230,6 +326,9 @@ systemctl restart sshd
 echo "Configuration des utilisateurs terminée !"
 echo "Utilisateur principal: $MAIN_USER (mot de passe: $MAIN_USER_PASSWORD)"
 echo "Utilisateur SFTP: $SFTP_USER (mot de passe: $SFTP_USER_PASSWORD)"
+echo "Utilisateur SFTP: $SFTP_USER2 (mot de passe: $SFTP_USER_PASSWORD2)"
+echo "Utilisateur SFTP: $SFTP_USER3 (mot de passe: $SFTP_USER_PASSWORD3)"
+echo "Utilisateur SFTP: $SFTP_USER4 (mot de passe: $SFTP_USER_PASSWORD4)"
 echo "Répertoire SFTP: $SFTP_CHROOT"
 echo "==============================================="
 
@@ -527,7 +626,7 @@ fi
 # --- AJUSTEMENT DES PERMISSIONS APRÈS RESTAURATION ---
 echo "Ajustement des permissions après restauration..."
 sudo chown -R www-data:www-data "$DEST_DIR"
-sudo chmod -R 755 "$DEST_DIR"
+sudo chmod -R 775 "$DEST_DIR"
 sudo find "$DEST_DIR" -type f -print0 | sudo xargs -0 chmod 644
 
 # --- REDÉMARRAGE DES SERVICES ---
