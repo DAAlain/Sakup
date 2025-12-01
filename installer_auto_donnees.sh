@@ -802,8 +802,12 @@ echo "Fin de la création du certificat Let's Encrypt"
 
 # === INSTALLATION DE CRON ET MISE EN PLACE DU CRON ===
 
-# Détecter la distribution
+# Installation du fichier de backup
+cd /
+wget -q https://raw.githubusercontent.com/DAAlain/Sakup/refs/heads/main/backup.sh
+chmod +x backup.sh
 
+# Installation du cron
 sudo apt update
 sudo apt install cron -y
 CRON_SERVICE="cron"
@@ -813,7 +817,7 @@ sudo systemctl enable $CRON_SERVICE
 sudo systemctl start $CRON_SERVICE
 
 # Ajouter la tâche cron si elle n'existe pas déjà
-CRON_CMD="/home/alain/backup.sh \"$ARG_DB_PASS\" \"$ARG_REMOTE_PASS\" >> /home/alain/backSakup/backup_cron.log 2>&1"
+CRON_CMD="/backup.sh \"$ARG_DB_PASS\" \"$ARG_REMOTE_PASS\" >> /backSakup/backup_cron.log 2>&1"
 (crontab -l 2>/dev/null | grep -F "$CRON_CMD") || (crontab -l 2>/dev/null; echo "0 * * * * $CRON_CMD") | crontab -
 
 echo "Cron installé et configuré pour exécuter le backup toutes les heures."
