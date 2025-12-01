@@ -324,7 +324,7 @@ install_prestashop_cli() {
             --db_name="$DB_NAME" \
             --db_user="$DB_USER" \
             --db_password="$DB_PASS" \
-            --prefix="PrestSakup_" \
+            --prefix="3g103_" \
             --email="$ADMIN_EMAIL" \
             --password="$ADMIN_PASSWORD" \
             --country="$SHOP_COUNTRY" \
