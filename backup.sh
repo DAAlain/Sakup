@@ -44,8 +44,40 @@ tar -czf $BACKUP_DIR/Sakup/sakup_uploads.tar.gz -C $PS_DIR upload
 # Sauvegarde fichiers de traduction
 tar -czf $BACKUP_DIR/Sakup/sakup_translations.tar.gz -C $PS_DIR translations
 
+# Sauvegarde dossier override
+tar -czf $BACKUP_DIR/Sakup/sakup_override.tar.gz -C $PS_DIR override
+
 # Sauvegarde fichiers de configuration serveur
 tar -czf $BACKUP_DIR/Sakup/sakup_server_config.tar.gz -C $PS_DIR .htaccess robots.txt
+
+# Sauvegarde fichiers PHP à la racine
+tar -czf $BACKUP_DIR/Sakup/sakup_root_php.tar.gz -C $PS_DIR --exclude='install' --exclude='admin' *.php
+
+# Sauvegarde dossier classes
+tar -czf $BACKUP_DIR/Sakup/sakup_classes.tar.gz -C $PS_DIR classes
+
+# Sauvegarde dossier controllers
+tar -czf $BACKUP_DIR/Sakup/sakup_controllers.tar.gz -C $PS_DIR controllers
+
+# Sauvegarde fichiers de configuration PHP essentiels
+tar -czf $BACKUP_DIR/Sakup/sakup_php_config.tar.gz -C $PS_DIR defines.inc.php settings.inc.php autoload.php
+
+# Sauvegarde dossier vendor (dépendances Composer)
+tar -czf $BACKUP_DIR/Sakup/sakup_vendor.tar.gz -C $PS_DIR vendor
+
+# Sauvegarde fichiers Composer
+tar -czf $BACKUP_DIR/Sakup/sakup_composer.tar.gz -C $PS_DIR composer.json composer.lock 2>/dev/null || true
+
+# Sauvegarde templates emails
+tar -czf $BACKUP_DIR/Sakup/sakup_mails.tar.gz -C $PS_DIR mails
+
+# Sauvegarde templates PDF
+tar -czf $BACKUP_DIR/Sakup/sakup_pdf.tar.gz -C $PS_DIR pdf
+
+# Sauvegarde dossier var (cache et logs)
+tar -czf $BACKUP_DIR/Sakup/sakup_var.tar.gz -C $PS_DIR var
+
+
 
 # === ENVOI SUR SERVEUR DISTANT ===
 # Vérification de la connexion SSH avant l'envoi
