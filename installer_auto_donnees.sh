@@ -804,11 +804,11 @@ echo "Fin de la création du certificat Let's Encrypt"
 
 # Installation du fichier de backup
 cd /
-wget -q https://raw.githubusercontent.com/DAAlain/Sakup/refs/heads/main/backup.sh
-chmod +x backup.sh
+sudo wget -q https://raw.githubusercontent.com/DAAlain/Sakup/refs/heads/main/backup.sh
+sudo chmod +x backup.sh
 
 # Création du dossier pour les logs de backup (si n'existe pas)
-mkdir -p /backSakup
+sudo mkdir -p /backSakup
 
 # Installation du cron
 sudo apt update
