@@ -623,6 +623,96 @@ else
     echo "ATTENTION: Fichier de configuration serveur non trouvé: sakup_server_config.tar.gz"
 fi
 
+# --- RESTAURATION DU DOSSIER OVERRIDE ---
+echo "Restauration du dossier override..."
+if [ -f "$BACKUP_DIR/Sakup/sakup_override.tar.gz" ]; then
+    echo "Restauration du dossier override depuis sakup_override.tar.gz..."
+    sudo tar -xzf "$BACKUP_DIR/Sakup/sakup_override.tar.gz" -C "$DEST_DIR"
+    echo "Dossier override restauré avec succès !"
+else
+    echo "ATTENTION: Fichier override non trouvé: sakup_override.tar.gz"
+fi
+
+# --- RESTAURATION DU DOSSIER CLASSES ---
+echo "Restauration du dossier classes..."
+if [ -f "$BACKUP_DIR/Sakup/sakup_classes.tar.gz" ]; then
+    echo "Restauration du dossier classes depuis sakup_classes.tar.gz..."
+    sudo tar -xzf "$BACKUP_DIR/Sakup/sakup_classes.tar.gz" -C "$DEST_DIR"
+    echo "Dossier classes restauré avec succès !"
+else
+    echo "ATTENTION: Fichier classes non trouvé: sakup_classes.tar.gz"
+fi
+
+# --- RESTAURATION DU DOSSIER CONTROLLERS ---
+echo "Restauration du dossier controllers..."
+if [ -f "$BACKUP_DIR/Sakup/sakup_controllers.tar.gz" ]; then
+    echo "Restauration du dossier controllers depuis sakup_controllers.tar.gz..."
+    sudo tar -xzf "$BACKUP_DIR/Sakup/sakup_controllers.tar.gz" -C "$DEST_DIR"
+    echo "Dossier controllers restauré avec succès !"
+else
+    echo "ATTENTION: Fichier controllers non trouvé: sakup_controllers.tar.gz"
+fi
+
+# --- RESTAURATION DES FICHIERS DE CONFIGURATION PHP ---
+echo "Restauration des fichiers de configuration PHP..."
+if [ -f "$BACKUP_DIR/Sakup/sakup_php_config.tar.gz" ]; then
+    echo "Restauration des fichiers de configuration PHP depuis sakup_php_config.tar.gz..."
+    sudo tar -xzf "$BACKUP_DIR/Sakup/sakup_php_config.tar.gz" -C "$DEST_DIR"
+    echo "Fichiers de configuration PHP restaurés avec succès !"
+else
+    echo "ATTENTION: Fichier de configuration PHP non trouvé: sakup_php_config.tar.gz"
+fi
+
+# --- RESTAURATION DU DOSSIER VENDOR ---
+echo "Restauration du dossier vendor..."
+if [ -f "$BACKUP_DIR/Sakup/sakup_vendor.tar.gz" ]; then
+    echo "Restauration du dossier vendor depuis sakup_vendor.tar.gz..."
+    sudo tar -xzf "$BACKUP_DIR/Sakup/sakup_vendor.tar.gz" -C "$DEST_DIR"
+    echo "Dossier vendor restauré avec succès !"
+else
+    echo "ATTENTION: Fichier vendor non trouvé: sakup_vendor.tar.gz"
+fi
+
+# --- RESTAURATION DES FICHIERS COMPOSER ---
+echo "Restauration des fichiers Composer..."
+if [ -f "$BACKUP_DIR/Sakup/sakup_composer.tar.gz" ]; then
+    echo "Restauration des fichiers Composer depuis sakup_composer.tar.gz..."
+    sudo tar -xzf "$BACKUP_DIR/Sakup/sakup_composer.tar.gz" -C "$DEST_DIR"
+    echo "Fichiers Composer restaurés avec succès !"
+else
+    echo "ATTENTION: Fichier Composer non trouvé: sakup_composer.tar.gz"
+fi
+
+# --- RESTAURATION DES TEMPLATES EMAILS ---
+echo "Restauration des templates emails..."
+if [ -f "$BACKUP_DIR/Sakup/sakup_mails.tar.gz" ]; then
+    echo "Restauration des templates emails depuis sakup_mails.tar.gz..."
+    sudo tar -xzf "$BACKUP_DIR/Sakup/sakup_mails.tar.gz" -C "$DEST_DIR"
+    echo "Templates emails restaurés avec succès !"
+else
+    echo "ATTENTION: Fichier mails non trouvé: sakup_mails.tar.gz"
+fi
+
+# --- RESTAURATION DES TEMPLATES PDF ---
+echo "Restauration des templates PDF..."
+if [ -f "$BACKUP_DIR/Sakup/sakup_pdf.tar.gz" ]; then
+    echo "Restauration des templates PDF depuis sakup_pdf.tar.gz..."
+    sudo tar -xzf "$BACKUP_DIR/Sakup/sakup_pdf.tar.gz" -C "$DEST_DIR"
+    echo "Templates PDF restaurés avec succès !"
+else
+    echo "ATTENTION: Fichier pdf non trouvé: sakup_pdf.tar.gz"
+fi
+
+# --- RESTAURATION DU DOSSIER VAR ---
+echo "Restauration du dossier var..."
+if [ -f "$BACKUP_DIR/Sakup/sakup_var.tar.gz" ]; then
+    echo "Restauration du dossier var depuis sakup_var.tar.gz..."
+    sudo tar -xzf "$BACKUP_DIR/Sakup/sakup_var.tar.gz" -C "$DEST_DIR"
+    echo "Dossier var restauré avec succès !"
+else
+    echo "ATTENTION: Fichier var non trouvé: sakup_var.tar.gz"
+fi
+
 # --- AJUSTEMENT DES PERMISSIONS APRÈS RESTAURATION ---
 echo "Ajustement des permissions après restauration..."
 sudo chown -R www-data:www-data "$DEST_DIR"
