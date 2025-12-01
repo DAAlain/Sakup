@@ -807,6 +807,9 @@ cd /
 wget -q https://raw.githubusercontent.com/DAAlain/Sakup/refs/heads/main/backup.sh
 chmod +x backup.sh
 
+# Création du dossier pour les logs de backup (si n'existe pas)
+mkdir -p /backSakup
+
 # Installation du cron
 sudo apt update
 sudo apt install cron -y
@@ -816,9 +819,10 @@ CRON_SERVICE="cron"
 sudo systemctl enable $CRON_SERVICE
 sudo systemctl start $CRON_SERVICE
 
-# Ajouter la tâche cron si elle n'existe pas déjà
-CRON_CMD="/backup.sh \"$ARG_DB_PASS\" \"$ARG_REMOTE_PASS\" >> /backSakup/backup_cron.log 2>&1"
-(crontab -l 2>/dev/null | grep -F "$CRON_CMD") || (crontab -l 2>/dev/null; echo "0 * * * * $CRON_CMD") | crontab -
+# Ajouter la tâche cron dans le crontab root (pour avoir les permissions nécessaires)
+# Le script backup.sh sera exécuté depuis / donc créera /backSakup
+CRON_CMD="cd / && /backup.sh \"$ARG_DB_PASS\" \"$ARG_REMOTE_PASS\" >> /backSakup/backup_cron.log 2>&1"
+(sudo crontab -l 2>/dev/null | grep -F "/backup.sh") || (sudo crontab -l 2>/dev/null; echo "0 * * * * $CRON_CMD") | sudo crontab -
 
 echo "Cron installé et configuré pour exécuter le backup toutes les heures."
 
