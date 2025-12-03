@@ -821,10 +821,9 @@ sudo systemctl start $CRON_SERVICE
 
 # Ajouter la tâche cron dans le crontab root (pour avoir les permissions nécessaires)
 # Le script backup.sh sera exécuté depuis / donc créera /backSakup
-CRON_CMD="cd / && /backup.sh \"$ARG_DB_PASS\" \"$ARG_REMOTE_PASS\" >> /backSakup/backup_cron.log 2>&1"
-(sudo crontab -l 2>/dev/null | grep -F "/backup.sh") || (sudo crontab -l 2>/dev/null; echo "0 * * * * $CRON_CMD") | sudo crontab -
+(sudo crontab -l 2>/dev/null | grep -F "/backup.sh") || (sudo crontab -l 2>/dev/null; echo "0 0 * * * /backup.sh '$ARG_DB_PASS' '$ARG_REMOTE_PASS' >> /backSakup/backup_cron.log 2>&1") | sudo crontab -
 
-echo "Cron installé et configuré pour exécuter le backup toutes les heures."
+echo "Cron installé et configuré pour exécuter le backup tous les jours à minuit."
 
 # ---------------------
 # --- FIN DU SCRIPT ---
