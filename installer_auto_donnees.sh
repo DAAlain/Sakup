@@ -548,26 +548,47 @@ else
     exit 1
 fi
 
-# --- Téléchargement avec rsync sur SSH + mot de passe ---
-echo "Début du téléchargement des fichiers de backup..."
-sshpass -p "$ARG_REMOTE_PASS" rsync -avz --progress \
-  -e "ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o PreferredAuthentications=password -o PubkeyAuthentication=no" \
-  $REMOTE_USER@$REMOTE_HOST:$REMOTE_DIR/ $BACKUP_DIR/
+# --- Recherche du dossier de backup le plus récent sur le serveur distant ---
+echo "Recherche du dossier de backup le plus récent sur le serveur distant..."
+LATEST_BACKUP_REMOTE=$(sshpass -p "$ARG_REMOTE_PASS" ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o PreferredAuthentications=password -o PubkeyAuthentication=no $REMOTE_USER@$REMOTE_HOST "ls -td $REMOTE_DIR/backup_* 2>/dev/null | head -1" 2>/dev/null)
 
-# --- Vérification que les fichiers de backup sont présents --- 
-if [ ! -d "$BACKUP_DIR/Sakup" ]; then
-    echo "ATTENTION: Dossier de backup non trouvé. Les étapes de restauration seront ignorées."
+if [ -z "$LATEST_BACKUP_REMOTE" ]; then
+    echo "ATTENTION: Aucun dossier de backup trouvé sur le serveur distant. Les étapes de restauration seront ignorées."
+    BACKUP_SAKUP_DIR=""
 else
-    echo "Fichiers de backup téléchargés avec succès !" 
+    echo "Dossier de backup le plus récent trouvé sur le serveur distant: $LATEST_BACKUP_REMOTE"
+    
+    # Vérifier que le dossier Sakup existe dans le backup distant
+    if sshpass -p "$ARG_REMOTE_PASS" ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o PreferredAuthentications=password -o PubkeyAuthentication=no $REMOTE_USER@$REMOTE_HOST "[ -d \"$LATEST_BACKUP_REMOTE/Sakup\" ]" 2>/dev/null; then
+        # Téléchargement uniquement du dossier de backup le plus récent
+        echo "Début du téléchargement du dossier de backup le plus récent..."
+        sshpass -p "$ARG_REMOTE_PASS" rsync -avz --progress \
+          -e "ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o PreferredAuthentications=password -o PubkeyAuthentication=no" \
+          $REMOTE_USER@$REMOTE_HOST:$LATEST_BACKUP_REMOTE/ $BACKUP_DIR/$(basename $LATEST_BACKUP_REMOTE)/
+        
+        # Définir le chemin local du dossier Sakup
+        LATEST_BACKUP_LOCAL="$BACKUP_DIR/$(basename $LATEST_BACKUP_REMOTE)"
+        BACKUP_SAKUP_DIR="$LATEST_BACKUP_LOCAL/Sakup"
+        
+        if [ -d "$BACKUP_SAKUP_DIR" ]; then
+            echo "Fichiers de backup téléchargés avec succès !" 
+        else
+            echo "ATTENTION: Dossier Sakup non trouvé après téléchargement. Les étapes de restauration seront ignorées."
+            BACKUP_SAKUP_DIR=""
+        fi
+    else
+        echo "ATTENTION: Dossier Sakup non trouvé dans le backup distant. Les étapes de restauration seront ignorées."
+        BACKUP_SAKUP_DIR=""
+    fi
 fi
 
 
 
 # --- RESTAURATION DE LA BASE DE DONNÉES ---
 echo "Restauration de la base de données..."
-if [ -f "$BACKUP_DIR/Sakup/sakup_database.sql.gz" ]; then
+if [ -f "$BACKUP_SAKUP_DIR/sakup_database.sql.gz" ]; then
     echo "Restauration de la base de données depuis sakup_database.sql.gz..."
-    gunzip -c "$BACKUP_DIR/Sakup/sakup_database.sql.gz" | mysql -u $DB_USER -p$DB_PASS $DB_NAME
+    gunzip -c "$BACKUP_SAKUP_DIR/sakup_database.sql.gz" | mysql -u $DB_USER -p$DB_PASS $DB_NAME
     echo "Base de données restaurée avec succès !"
 else
     echo "ATTENTION: Fichier de base de données non trouvé: sakup_database.sql.gz"
@@ -575,9 +596,9 @@ fi
 
 # --- RESTAURATION DES IMAGES ---
 echo "Restauration des images..."
-if [ -f "$BACKUP_DIR/Sakup/sakup_images.tar.gz" ]; then
+if [ -f "$BACKUP_SAKUP_DIR/sakup_images.tar.gz" ]; then
     echo "Restauration des images depuis sakup_images.tar.gz..."
-    sudo tar -xzf "$BACKUP_DIR/Sakup/sakup_images.tar.gz" -C "$DEST_DIR"
+    sudo tar -xzf "$BACKUP_SAKUP_DIR/sakup_images.tar.gz" -C "$DEST_DIR"
     echo "Images restaurées avec succès !"
 else
     echo "ATTENTION: Fichier d'images non trouvé: sakup_images.tar.gz"
@@ -585,9 +606,9 @@ fi
 
 # --- RESTAURATION DES THÈMES ---
 echo "Restauration des thèmes..."
-if [ -f "$BACKUP_DIR/Sakup/sakup_themes.tar.gz" ]; then
+if [ -f "$BACKUP_SAKUP_DIR/sakup_themes.tar.gz" ]; then
     echo "Restauration des thèmes depuis sakup_themes.tar.gz..."
-    sudo tar -xzf "$BACKUP_DIR/Sakup/sakup_themes.tar.gz" -C "$DEST_DIR"
+    sudo tar -xzf "$BACKUP_SAKUP_DIR/sakup_themes.tar.gz" -C "$DEST_DIR"
     echo "Thèmes restaurés avec succès !"
 else
     echo "ATTENTION: Fichier de thèmes non trouvé: sakup_themes.tar.gz"
@@ -595,9 +616,9 @@ fi
 
 # --- RESTAURATION DES MODULES ---
 echo "Restauration des modules..."
-if [ -f "$BACKUP_DIR/Sakup/sakup_modules.tar.gz" ]; then
+if [ -f "$BACKUP_SAKUP_DIR/sakup_modules.tar.gz" ]; then
     echo "Restauration des modules depuis sakup_modules.tar.gz..."
-    sudo tar -xzf "$BACKUP_DIR/Sakup/sakup_modules.tar.gz" -C "$DEST_DIR"
+    sudo tar -xzf "$BACKUP_SAKUP_DIR/sakup_modules.tar.gz" -C "$DEST_DIR"
     echo "Modules restaurés avec succès !"
 else
     echo "ATTENTION: Fichier de modules non trouvé: sakup_modules.tar.gz"
@@ -605,9 +626,9 @@ fi
 
 # --- RESTAURATION DES FICHIERS DE CONFIGURATION ---
 echo "Restauration des fichiers de configuration..."
-if [ -f "$BACKUP_DIR/Sakup/sakup_config.tar.gz" ]; then
+if [ -f "$BACKUP_SAKUP_DIR/sakup_config.tar.gz" ]; then
     echo "Restauration des fichiers de configuration depuis sakup_config.tar.gz..."
-    sudo tar -xzf "$BACKUP_DIR/Sakup/sakup_config.tar.gz" -C "$DEST_DIR"
+    sudo tar -xzf "$BACKUP_SAKUP_DIR/sakup_config.tar.gz" -C "$DEST_DIR"
     echo "Fichiers de configuration restaurés avec succès !"
 else
     echo "ATTENTION: Fichier de configuration non trouvé: sakup_config.tar.gz"
@@ -615,9 +636,9 @@ fi
 
 # --- RESTAURATION DES FICHIERS UPLOADÉS ---
 echo "Restauration des fichiers uploadés..."
-if [ -f "$BACKUP_DIR/Sakup/sakup_uploads.tar.gz" ]; then
+if [ -f "$BACKUP_SAKUP_DIR/sakup_uploads.tar.gz" ]; then
     echo "Restauration des fichiers uploadés depuis sakup_uploads.tar.gz..."
-    sudo tar -xzf "$BACKUP_DIR/Sakup/sakup_uploads.tar.gz" -C "$DEST_DIR"
+    sudo tar -xzf "$BACKUP_SAKUP_DIR/sakup_uploads.tar.gz" -C "$DEST_DIR"
     echo "Fichiers uploadés restaurés avec succès !"
 else
     echo "ATTENTION: Fichier d'uploads non trouvé: sakup_uploads.tar.gz"
@@ -625,9 +646,9 @@ fi
 
 # --- RESTAURATION DES TRADUCTIONS ---
 echo "Restauration des traductions..."
-if [ -f "$BACKUP_DIR/Sakup/sakup_translations.tar.gz" ]; then
+if [ -f "$BACKUP_SAKUP_DIR/sakup_translations.tar.gz" ]; then
     echo "Restauration des traductions depuis sakup_translations.tar.gz..."
-    sudo tar -xzf "$BACKUP_DIR/Sakup/sakup_translations.tar.gz" -C "$DEST_DIR"
+    sudo tar -xzf "$BACKUP_SAKUP_DIR/sakup_translations.tar.gz" -C "$DEST_DIR"
     echo "Traductions restaurées avec succès !"
 else
     echo "ATTENTION: Fichier de traductions non trouvé: sakup_translations.tar.gz"
@@ -635,9 +656,9 @@ fi
 
 # --- RESTAURATION DE LA CONFIGURATION SERVEUR ---
 echo "Restauration de la configuration serveur..."
-if [ -f "$BACKUP_DIR/Sakup/sakup_server_config.tar.gz" ]; then
+if [ -f "$BACKUP_SAKUP_DIR/sakup_server_config.tar.gz" ]; then
     echo "Restauration de la configuration serveur depuis sakup_server_config.tar.gz..."
-    sudo tar -xzf "$BACKUP_DIR/Sakup/sakup_server_config.tar.gz" -C "$DEST_DIR"
+    sudo tar -xzf "$BACKUP_SAKUP_DIR/sakup_server_config.tar.gz" -C "$DEST_DIR"
     echo "Configuration serveur restaurée avec succès !"
 else
     echo "ATTENTION: Fichier de configuration serveur non trouvé: sakup_server_config.tar.gz"
@@ -645,9 +666,9 @@ fi
 
 # --- RESTAURATION DU DOSSIER OVERRIDE ---
 echo "Restauration du dossier override..."
-if [ -f "$BACKUP_DIR/Sakup/sakup_override.tar.gz" ]; then
+if [ -f "$BACKUP_SAKUP_DIR/sakup_override.tar.gz" ]; then
     echo "Restauration du dossier override depuis sakup_override.tar.gz..."
-    sudo tar -xzf "$BACKUP_DIR/Sakup/sakup_override.tar.gz" -C "$DEST_DIR"
+    sudo tar -xzf "$BACKUP_SAKUP_DIR/sakup_override.tar.gz" -C "$DEST_DIR"
     echo "Dossier override restauré avec succès !"
 else
     echo "ATTENTION: Fichier override non trouvé: sakup_override.tar.gz"
@@ -655,9 +676,9 @@ fi
 
 # --- RESTAURATION DU DOSSIER CLASSES ---
 echo "Restauration du dossier classes..."
-if [ -f "$BACKUP_DIR/Sakup/sakup_classes.tar.gz" ]; then
+if [ -f "$BACKUP_SAKUP_DIR/sakup_classes.tar.gz" ]; then
     echo "Restauration du dossier classes depuis sakup_classes.tar.gz..."
-    sudo tar -xzf "$BACKUP_DIR/Sakup/sakup_classes.tar.gz" -C "$DEST_DIR"
+    sudo tar -xzf "$BACKUP_SAKUP_DIR/sakup_classes.tar.gz" -C "$DEST_DIR"
     echo "Dossier classes restauré avec succès !"
 else
     echo "ATTENTION: Fichier classes non trouvé: sakup_classes.tar.gz"
@@ -665,9 +686,9 @@ fi
 
 # --- RESTAURATION DU DOSSIER CONTROLLERS ---
 echo "Restauration du dossier controllers..."
-if [ -f "$BACKUP_DIR/Sakup/sakup_controllers.tar.gz" ]; then
+if [ -f "$BACKUP_SAKUP_DIR/sakup_controllers.tar.gz" ]; then
     echo "Restauration du dossier controllers depuis sakup_controllers.tar.gz..."
-    sudo tar -xzf "$BACKUP_DIR/Sakup/sakup_controllers.tar.gz" -C "$DEST_DIR"
+    sudo tar -xzf "$BACKUP_SAKUP_DIR/sakup_controllers.tar.gz" -C "$DEST_DIR"
     echo "Dossier controllers restauré avec succès !"
 else
     echo "ATTENTION: Fichier controllers non trouvé: sakup_controllers.tar.gz"
@@ -675,9 +696,9 @@ fi
 
 # --- RESTAURATION DES FICHIERS DE CONFIGURATION PHP ---
 echo "Restauration des fichiers de configuration PHP..."
-if [ -f "$BACKUP_DIR/Sakup/sakup_php_config.tar.gz" ]; then
+if [ -f "$BACKUP_SAKUP_DIR/sakup_php_config.tar.gz" ]; then
     echo "Restauration des fichiers de configuration PHP depuis sakup_php_config.tar.gz..."
-    sudo tar -xzf "$BACKUP_DIR/Sakup/sakup_php_config.tar.gz" -C "$DEST_DIR"
+    sudo tar -xzf "$BACKUP_SAKUP_DIR/sakup_php_config.tar.gz" -C "$DEST_DIR"
     echo "Fichiers de configuration PHP restaurés avec succès !"
 else
     echo "ATTENTION: Fichier de configuration PHP non trouvé: sakup_php_config.tar.gz"
@@ -685,9 +706,9 @@ fi
 
 # --- RESTAURATION DU DOSSIER VENDOR ---
 echo "Restauration du dossier vendor..."
-if [ -f "$BACKUP_DIR/Sakup/sakup_vendor.tar.gz" ]; then
+if [ -f "$BACKUP_SAKUP_DIR/sakup_vendor.tar.gz" ]; then
     echo "Restauration du dossier vendor depuis sakup_vendor.tar.gz..."
-    sudo tar -xzf "$BACKUP_DIR/Sakup/sakup_vendor.tar.gz" -C "$DEST_DIR"
+    sudo tar -xzf "$BACKUP_SAKUP_DIR/sakup_vendor.tar.gz" -C "$DEST_DIR"
     echo "Dossier vendor restauré avec succès !"
 else
     echo "ATTENTION: Fichier vendor non trouvé: sakup_vendor.tar.gz"
@@ -695,9 +716,9 @@ fi
 
 # --- RESTAURATION DES FICHIERS COMPOSER ---
 echo "Restauration des fichiers Composer..."
-if [ -f "$BACKUP_DIR/Sakup/sakup_composer.tar.gz" ]; then
+if [ -f "$BACKUP_SAKUP_DIR/sakup_composer.tar.gz" ]; then
     echo "Restauration des fichiers Composer depuis sakup_composer.tar.gz..."
-    sudo tar -xzf "$BACKUP_DIR/Sakup/sakup_composer.tar.gz" -C "$DEST_DIR"
+    sudo tar -xzf "$BACKUP_SAKUP_DIR/sakup_composer.tar.gz" -C "$DEST_DIR"
     echo "Fichiers Composer restaurés avec succès !"
 else
     echo "ATTENTION: Fichier Composer non trouvé: sakup_composer.tar.gz"
@@ -705,9 +726,9 @@ fi
 
 # --- RESTAURATION DES TEMPLATES EMAILS ---
 echo "Restauration des templates emails..."
-if [ -f "$BACKUP_DIR/Sakup/sakup_mails.tar.gz" ]; then
+if [ -f "$BACKUP_SAKUP_DIR/sakup_mails.tar.gz" ]; then
     echo "Restauration des templates emails depuis sakup_mails.tar.gz..."
-    sudo tar -xzf "$BACKUP_DIR/Sakup/sakup_mails.tar.gz" -C "$DEST_DIR"
+    sudo tar -xzf "$BACKUP_SAKUP_DIR/sakup_mails.tar.gz" -C "$DEST_DIR"
     echo "Templates emails restaurés avec succès !"
 else
     echo "ATTENTION: Fichier mails non trouvé: sakup_mails.tar.gz"
@@ -715,9 +736,9 @@ fi
 
 # --- RESTAURATION DES TEMPLATES PDF ---
 echo "Restauration des templates PDF..."
-if [ -f "$BACKUP_DIR/Sakup/sakup_pdf.tar.gz" ]; then
+if [ -f "$BACKUP_SAKUP_DIR/sakup_pdf.tar.gz" ]; then
     echo "Restauration des templates PDF depuis sakup_pdf.tar.gz..."
-    sudo tar -xzf "$BACKUP_DIR/Sakup/sakup_pdf.tar.gz" -C "$DEST_DIR"
+    sudo tar -xzf "$BACKUP_SAKUP_DIR/sakup_pdf.tar.gz" -C "$DEST_DIR"
     echo "Templates PDF restaurés avec succès !"
 else
     echo "ATTENTION: Fichier pdf non trouvé: sakup_pdf.tar.gz"
@@ -725,9 +746,9 @@ fi
 
 # --- RESTAURATION DU DOSSIER VAR ---
 echo "Restauration du dossier var..."
-if [ -f "$BACKUP_DIR/Sakup/sakup_var.tar.gz" ]; then
+if [ -f "$BACKUP_SAKUP_DIR/sakup_var.tar.gz" ]; then
     echo "Restauration du dossier var depuis sakup_var.tar.gz..."
-    sudo tar -xzf "$BACKUP_DIR/Sakup/sakup_var.tar.gz" -C "$DEST_DIR"
+    sudo tar -xzf "$BACKUP_SAKUP_DIR/sakup_var.tar.gz" -C "$DEST_DIR"
     echo "Dossier var restauré avec succès !"
 else
     echo "ATTENTION: Fichier var non trouvé: sakup_var.tar.gz"
